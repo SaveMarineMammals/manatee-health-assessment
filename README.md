@@ -50,7 +50,7 @@ pnpm --filter @manatee/mobile start
 
 | Path                | What it holds                                                                    |
 | ------------------- | -------------------------------------------------------------------------------- |
-| `apps/mobile`       | The Expo app. Screens and native permissions, as little logic as possible.       |
+| `src/mobile`        | The Expo app. Screens and native permissions, as little logic as possible.       |
 | `packages/core`     | Pure TypeScript domain logic. No React, no native, no I/O. Highest coverage bar. |
 | `packages/contract` | Version corpus and contract tests against the pinned platform schema.            |
 | `scripts/`          | Schema pin plumbing and the alarm audio render pipeline.                         |
@@ -113,7 +113,7 @@ upstream drift surfaces the day it lands instead of at the next bump.
 
 ## Builds
 
-`apps/mobile/eas.json` defines `development`, `preview` and `production` profiles. CI runs a preview
+`src/mobile/eas.json` defines `development`, `preview` and `production` profiles. CI runs a preview
 build on pushes to `main` when the `EXPO_TOKEN` secret is present, and skips with a notice when it is
 not.
 

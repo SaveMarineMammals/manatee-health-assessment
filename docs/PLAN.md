@@ -20,7 +20,7 @@ Everything that can be a pure function is one, in a package with no React and no
 - `packages/db` (P1) — Drizzle schema, migrations, repositories. Same SQL on device and in Node tests.
 - `packages/alarm-output` (P2) — the only code touching audio, haptics and notifications, behind a
   narrow interface so the engine tests against a fake.
-- `apps/mobile` — screens and native permissions.
+- `src/mobile` — screens and native permissions.
 
 ## The breath tracker
 

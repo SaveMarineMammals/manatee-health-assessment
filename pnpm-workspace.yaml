@@ -1,5 +1,5 @@
 packages:
-  - 'apps/*'
+  - 'src/*'
   - 'packages/*'
 
 # Expo and React Native resolve native modules by walking node_modules, which

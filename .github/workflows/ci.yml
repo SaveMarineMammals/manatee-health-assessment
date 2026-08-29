@@ -195,5 +195,5 @@ jobs:
 
       - name: EAS build (preview)
         if: steps.creds.outputs.available == 'true'
-        working-directory: apps/mobile
+        working-directory: src/mobile
         run: eas build --platform all --profile preview --non-interactive --no-wait

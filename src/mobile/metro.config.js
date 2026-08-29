@@ -1,5 +1,5 @@
 // Metro must see the whole workspace: the app consumes @manatee/core and the
-// rendered alarm assets, both of which live above apps/mobile.
+// rendered alarm assets, both of which live above src/mobile.
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('node:path');
 
