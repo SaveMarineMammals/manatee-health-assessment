@@ -1,7 +1,8 @@
 # Architecture decisions
 
-Condensed from the full architecture plan. This file covers the decisions that constrain code; the
-plan carries the reasoning, the screen mockups and the phase breakdown.
+The decisions that constrain code, and why they were made. Procedures live alongside: see
+[SCHEMA-VERSIONING.md](SCHEMA-VERSIONING.md), [ALARM-AUDIO.md](ALARM-AUDIO.md) and
+[RELEASE.md](RELEASE.md).
 
 ## Runtime
 
@@ -78,11 +79,14 @@ upstream.
 
 ## Alarm audio
 
-Pre-rendered at build time, committed, never synthesised at runtime. See the README for why and for
-the pipeline.
+Pre-rendered at build time, committed, never synthesised at runtime — runtime TTS routes through the
+media channel the iOS silent switch mutes, varies by device, and cold-starts too slowly for an alarm.
 
 Every alarm fires sound, a full-screen polarity change and a sustained haptic pattern simultaneously.
 On a working boat any single channel can lose.
+
+The pipeline, the shipped clip set and the re-render procedure are in
+[ALARM-AUDIO.md](ALARM-AUDIO.md).
 
 ## Schema versioning
 
@@ -95,24 +99,15 @@ constraint-relaxing** changes. Anything narrowing requires a new protocol alongs
 The version corpus in `src/contract/fixtures/` keeps one golden payload set per version ever
 shipped, asserted on every build. Nothing is removed from it.
 
-**Known platform blocker:** `packages/schema/src/manatee_v1/validate.ts` checks `protocol_version` by
-exact string equality against a compile-time constant, and the API runs that on every synced
-assessment. Any schema bump therefore rejects every record from every older client. For an annually
-used app that is the normal case, not an edge case. The fix is range-accept (same major, record
-version ≤ server version) with per-version validator dispatch. Tracked upstream.
-
-Confirmed against a live API (platform `50809ec`, 2026-08-29). An otherwise valid assessment
-carrying `protocol_version: "1.0.1"` is rejected at `POST /v1/sync/batch` with HTTP 400:
-
-```
-protocol_version: protocol_version must be 1.0.0 for manatee_v1 assessments
-```
-
-A patch-level bump on the server is therefore enough to strand a whole season of captured data.
+Two platform blockers sit on this path, both confirmed against a live API rather than inferred from
+source: the server rejects any protocol version but its own, and `respiratory_rate` cannot represent
+a manatee's actual breathing rate. Both are written up with reproductions, alongside the pin-bump
+procedure, in [SCHEMA-VERSIONING.md](SCHEMA-VERSIONING.md).
 
 ## Operations
 
-- **Not TestFlight.** Builds expire after 90 days; the assessment is annual, so the app would always
-  be expired when needed. Unlisted App Store distribution and the Play internal track instead.
-- **Gate over-the-air updates.** Check at launch only, on a good connection, never mid-assessment.
-- **Keep the PWA working.** Same contract, same server — the fallback when a phone goes in the water.
+The app is used intensively for about one week a year, and most operational decisions follow from
+that: distribution channels that do not expire, over-the-air updates gated so they never apply
+mid-assessment, and a pre-season rehearsal a month out rather than the day before.
+
+Details and the rehearsal checklist are in [RELEASE.md](RELEASE.md).
