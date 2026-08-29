@@ -22,8 +22,9 @@ Clone it as a sibling of this repo, then:
 pnpm bootstrap
 ```
 
-That links the platform to `.mmap-platform`, installs, verifies the schema pin and generates
-`src/core/src/generated/pin.ts`. If the platform lives somewhere else, set `MMAP_PLATFORM_PATH`.
+That links the platform to `.mmap-platform`, installs, verifies the schema pin, and generates the
+protocol constants and brand tokens into `src/core/src/generated/`. If the platform lives somewhere
+else, set `MMAP_PLATFORM_PATH`.
 
 Build the schema package once so its `dist/` exists:
 

@@ -47,7 +47,7 @@ jobs:
           pnpm --filter @mmap/schema build
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm schema:sync
+      - run: pnpm sync
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
@@ -105,13 +105,13 @@ jobs:
 
       # Scheduled runs deliberately skip the pin check: the whole point is to
       # exercise a platform newer than the pin.
-      - name: Verify pin
+      - name: Verify pin and sync brand tokens
         if: github.event_name != 'schedule'
-        run: pnpm schema:sync
+        run: pnpm sync
 
-      - name: Generate pin for drift run
+      - name: Sync for drift run
         if: github.event_name == 'schedule'
-        run: pnpm schema:sync
+        run: pnpm sync
         continue-on-error: true
 
       - name: Run the version corpus against the live API
@@ -182,7 +182,7 @@ jobs:
         if: steps.creds.outputs.available == 'true'
         run: |
           pnpm install --frozen-lockfile
-          pnpm schema:sync
+          pnpm sync
           pnpm --filter @manatee/core build
 
       - name: Verify the committed alarm audio is intact

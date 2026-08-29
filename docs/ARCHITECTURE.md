@@ -32,8 +32,8 @@ content _inside_ a zone; they never insert, remove or resize one. The record but
 identical rectangle in every state, alarm included — a control that relocates at the moment of an
 alarm is a control that gets missed. There is a component test asserting exactly this.
 
-**Sunlight palette.** State is carried by **polarity, not hue**: normal is black on white, alarm
-inverts to amber on near-black. Green-versus-red is close in luminance, so it collapses to the same
+**Sunlight palette.** State is carried by **polarity, not hue**: calm is brand ink on brand aqua, alarm
+inverts to brand amber on brand ink. Green-versus-red is close in luminance, so it collapses to the same
 grey once the screen washes out in direct sun, and it fails the roughly one man in twelve with
 red-green colour deficiency. Colour is a redundant channel behind polarity, motion, the word itself,
 sound and haptics. Heavy type only — thin strokes disappear first in glare.
@@ -41,6 +41,9 @@ sound and haptics. Heavy type only — thin strokes disappear first in glare.
 **Gloves.** Taps only, no gestures. Three-channel confirmation on every tap (haptic, tick, visual
 flash). Double-tap guard with _visible_ feedback, never silent. Undo is a separate deliberate control
 with a confirm, never adjacent to the record target.
+
+The palette, type scale and the locked-zone rule are specified in [DESIGN.md](DESIGN.md), and are
+generated from the platform brand so both apps stay one product line.
 
 ## Timing
 

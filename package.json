@@ -8,7 +8,7 @@
   },
   "packageManager": "pnpm@11.6.0",
   "scripts": {
-    "bootstrap": "node scripts/link-platform.mjs && pnpm install && pnpm schema:sync",
+    "bootstrap": "node scripts/link-platform.mjs && pnpm install && pnpm sync",
     "schema:link": "node scripts/link-platform.mjs",
     "schema:sync": "node scripts/sync-schema-pin.mjs",
     "audio:render": "node scripts/render-alarm-audio.mjs",
@@ -17,8 +17,10 @@
     "test": "pnpm build && pnpm -r --no-bail test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "validate": "pnpm schema:sync && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
-    "build": "pnpm -r build"
+    "validate": "pnpm sync && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "build": "pnpm -r build",
+    "brand:sync": "node scripts/sync-brand-tokens.mjs",
+    "sync": "pnpm schema:sync && pnpm brand:sync"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

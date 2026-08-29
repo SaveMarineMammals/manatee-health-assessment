@@ -1,10 +1,22 @@
-import { StatusBar } from 'expo-status-bar';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFonts } from 'expo-font';
 import {
+  IBMPlexSans_400Regular,
+  IBMPlexSans_500Medium,
+  IBMPlexSans_700Bold,
+} from '@expo-google-fonts/ibm-plex-sans';
+import { Literata_600SemiBold } from '@expo-google-fonts/literata';
+import { StatusBar } from 'expo-status-bar';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  FONTS,
   PROTOCOL,
   PROTOCOL_VERSION,
+  RADIUS,
   REQUIRED_AUDIO_ASSET_IDS,
   SCHEMA_COMMIT,
+  SPACE,
+  TYPE,
+  chrome,
   validateAudioManifest,
 } from '@manatee/core';
 import audioManifest from '../../assets/audio/manifest.json';
@@ -12,24 +24,16 @@ import audioManifest from '../../assets/audio/manifest.json';
 /**
  * P0 shell — the seed of the preflight screen.
  *
- * It exists to prove the foundations are wired end to end: the schema pin has
- * been code-generated into @manatee/core and read by the app, and the rendered
- * alarm assets are present and valid. The breath tracker replaces the body of
- * this screen in P1.
+ * It exists to prove the foundations are wired end to end: the schema pin and
+ * brand tokens have been code-generated into @manatee/core and read by the app,
+ * and the rendered alarm assets are present and valid.
  *
- * Colours are the outdoor palette: black on white, heavy type, no mid-greys.
- * Anything the crew reads in direct sun is built this way.
+ * Styling is the platform field PWA's dark theme, from the same @mmap/brand
+ * tokens it uses, so the two apps read as one product. The breath tracker in P1
+ * is the deliberate exception — see docs/DESIGN.md.
  */
 
-const palette = {
-  bg: '#FFFFFF',
-  ink: '#0A0A0A',
-  ink2: '#494F52',
-  line: '#C7CCCF',
-  accent: '#0B3550',
-  ok: '#116A3C',
-  bad: '#B3140A',
-};
+const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -40,32 +44,74 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    IBMPlexSans_400Regular,
+    IBMPlexSans_500Medium,
+    IBMPlexSans_700Bold,
+    Literata_600SemiBold,
+  });
+
   const problems = validateAudioManifest(audioManifest);
   const audioReady = problems.length === 0;
 
+  if (!fontsLoaded) {
+    // Brand type is not decoration here — a half-rendered preflight invites
+    // someone to skim past a check they were meant to read.
+    return (
+      <View style={[styles.screen, styles.centred]}>
+        <StatusBar style="light" />
+        <ActivityIndicator color={chrome.accent} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
-      <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>PREFLIGHT</Text>
-        <Text style={styles.title}>Manatee Assessment</Text>
+      <StatusBar style="light" />
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Data contract</Text>
+      <View style={styles.topBar}>
+        <View style={styles.chip}>
+          <Text style={styles.chipText}>FIELD</Text>
+        </View>
+        <Text style={styles.topBarTitle}>Preflight</Text>
+        <View
+          style={[
+            styles.statusDot,
+            { backgroundColor: audioReady ? chrome.success : chrome.danger },
+          ]}
+        />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.appName}>Manatee Assessment</Text>
+
+        <Card title="Data contract">
           <Row label="PROTOCOL" value={PROTOCOL} />
           <Row label="VERSION" value={PROTOCOL_VERSION} />
           <Row label="SCHEMA" value={SCHEMA_COMMIT.slice(0, 12)} />
-        </View>
+        </Card>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Alarm audio</Text>
+        <Card title="Alarm audio">
           <Row
             label="ASSETS"
-            value={`${audioManifest.assets.length} of ${REQUIRED_AUDIO_ASSET_IDS.length} required`}
+            value={`${audioManifest.assets.length} of ${REQUIRED_AUDIO_ASSET_IDS.length}`}
           />
-          <View style={[styles.status, { borderColor: audioReady ? palette.ok : palette.bad }]}>
-            <Text style={[styles.statusText, { color: audioReady ? palette.ok : palette.bad }]}>
+          <View
+            style={[styles.status, { borderColor: audioReady ? chrome.success : chrome.danger }]}
+          >
+            <Text
+              style={[styles.statusText, { color: audioReady ? chrome.success : chrome.danger }]}
+            >
               {audioReady ? 'READY' : 'INCOMPLETE'}
             </Text>
           </View>
@@ -74,7 +120,7 @@ export default function App() {
               {problem.assetId}: {problem.problem}
             </Text>
           ))}
-        </View>
+        </Card>
 
         <Text style={styles.footnote}>
           P0 foundations. The breath tracker lands in P1; the spoken alarm and the full preflight
@@ -86,46 +132,99 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.bg },
-  content: { padding: 24, paddingTop: 72, gap: 16 },
-  eyebrow: {
-    fontSize: 11,
-    letterSpacing: 1.6,
-    color: palette.ink2,
-    fontWeight: '600',
+  screen: { flex: 1, backgroundColor: chrome.bg },
+  centred: { alignItems: 'center', justifyContent: 'center' },
+
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.sm,
+    paddingHorizontal: SPACE.lg,
+    paddingTop: SPACE.xxl + SPACE.lg,
+    paddingBottom: SPACE.md,
+    backgroundColor: chrome.surface,
+    borderBottomWidth: 2,
+    borderBottomColor: chrome.border,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: palette.ink,
-    letterSpacing: -0.5,
-    marginBottom: 8,
+  chip: {
+    backgroundColor: chrome.accent,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACE.sm,
+    paddingVertical: SPACE.xs,
   },
+  chipText: {
+    fontFamily: mono,
+    fontSize: TYPE.meta,
+    letterSpacing: 1.2,
+    color: chrome.onAccent,
+    fontWeight: '700',
+  },
+  topBarTitle: {
+    flex: 1,
+    fontFamily: FONTS.uiBold,
+    fontSize: TYPE.title,
+    color: chrome.text,
+  },
+  statusDot: { width: 14, height: 14, borderRadius: 7 },
+
+  content: { padding: SPACE.lg, gap: SPACE.lg },
+
+  appName: {
+    fontFamily: FONTS.brand,
+    fontSize: TYPE.heading,
+    color: chrome.text,
+    marginTop: SPACE.sm,
+  },
+
   card: {
     borderWidth: 1,
-    borderColor: palette.line,
-    borderRadius: 10,
-    padding: 16,
-    gap: 8,
+    borderColor: chrome.border,
+    borderRadius: RADIUS.xl,
+    padding: SPACE.lg,
+    gap: SPACE.sm,
+    backgroundColor: chrome.surface,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: palette.accent,
-    marginBottom: 4,
+    fontFamily: FONTS.uiBold,
+    fontSize: TYPE.title,
+    color: chrome.text,
+    marginBottom: SPACE.xs,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 },
-  rowLabel: { fontSize: 11, letterSpacing: 1.2, color: palette.ink2, fontWeight: '600' },
-  rowValue: { fontSize: 15, fontWeight: '700', color: palette.ink, fontVariant: ['tabular-nums'] },
+
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: SPACE.md,
+  },
+  rowLabel: {
+    fontFamily: mono,
+    fontSize: TYPE.meta,
+    letterSpacing: 1,
+    color: chrome.textMuted,
+  },
+  rowValue: {
+    fontFamily: mono,
+    fontSize: TYPE.small,
+    color: chrome.accent,
+    fontVariant: ['tabular-nums'],
+  },
+
   status: {
     alignSelf: 'flex-start',
     borderWidth: 2,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 4,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.xs,
+    marginTop: SPACE.xs,
   },
-  statusText: { fontSize: 14, fontWeight: '800', letterSpacing: 1 },
-  problem: { fontSize: 13, color: palette.bad },
-  footnote: { fontSize: 13, color: palette.ink2, lineHeight: 20, marginTop: 8 },
+  statusText: { fontFamily: FONTS.uiBold, fontSize: TYPE.small, letterSpacing: 1 },
+  problem: { fontFamily: FONTS.ui, fontSize: TYPE.small, color: chrome.danger },
+
+  footnote: {
+    fontFamily: FONTS.ui,
+    fontSize: TYPE.small,
+    color: chrome.textMuted,
+    lineHeight: 26,
+  },
 });

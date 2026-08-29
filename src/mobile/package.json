@@ -12,8 +12,11 @@
     "doctor": "npx expo-doctor"
   },
   "dependencies": {
+    "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
+    "@expo-google-fonts/literata": "^0.4.3",
     "@manatee/core": "workspace:*",
     "expo": "~57.0.18",
+    "expo-font": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
