@@ -40,11 +40,34 @@ Run the gate:
 pnpm validate
 ```
 
-Start the app:
+## Running the app
+
+Three ways, in descending order of fidelity.
+
+**On a real phone — the only one that tests the actual experience.** Install Expo Go, put the phone
+on the same wifi, and scan the QR code:
 
 ```bash
 pnpm --filter @manatee/mobile start
 ```
+
+Expo Go runs the JavaScript but not custom native code, so from P2 onward the alarm's audio session,
+alarm-stream routing and lock-screen behaviour will need a development build
+(`eas build --profile development`) rather than Expo Go. Sunlight legibility and glove reach can only
+ever be tested outdoors on the real device.
+
+**In a browser — fast UI iteration, low fidelity.**
+
+```bash
+pnpm --filter @manatee/mobile start -- --web
+```
+
+Useful for laying out screens quickly. It is a preview target only and never ships: no haptics, no
+audio session, no silent-switch or Do Not Disturb behaviour — which is to say, none of the things
+this app exists to get right.
+
+**In a simulator.** Needs Android Studio (SDK + JDK) or, for iOS, Xcode on macOS. Neither is required
+for the two options above.
 
 ## Layout
 
