@@ -86,7 +86,9 @@ jobs:
       - name: Start the platform API
         working-directory: .mmap-platform
         run: |
-          docker compose up -d --build postgres api
+          # minio is named explicitly because the api service depends on it
+          # being healthy; the API runs its own migrations on boot.
+          docker compose up -d --build postgres minio api
           for _ in $(seq 1 60); do
             curl -sf http://localhost:3001/v1/health && break
             sleep 2
