@@ -1,0 +1,9 @@
+{
+  "id": "4b7d1e58-3c26-4a9f-8e04-6d2b5f9c1a37",
+  "assessment_id": "6f1c2a54-9c3e-4a1b-8f7d-2b5e9a0c4d11",
+  "measurement_type": "blood_pressure",
+  "recorded_at": "2026-02-14T14:30:00.000Z",
+  "value": { "systolic": 118, "diastolic": 74 },
+  "unit": "mmHg",
+  "method": "Doppler, pectoral flipper"
+}

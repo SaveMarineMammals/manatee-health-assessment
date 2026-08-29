@@ -1,0 +1,32 @@
+{
+  "name": "manatee-health-assessment",
+  "private": true,
+  "type": "module",
+  "description": "Field assessment app for the annual CMARI Belize manatee health assessment",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.6.0",
+  "scripts": {
+    "bootstrap": "node scripts/link-platform.mjs && pnpm install && pnpm schema:sync",
+    "schema:link": "node scripts/link-platform.mjs",
+    "schema:sync": "node scripts/sync-schema-pin.mjs",
+    "audio:render": "node scripts/render-alarm-audio.mjs",
+    "typecheck": "pnpm build && pnpm -r --no-bail typecheck",
+    "lint": "eslint .",
+    "test": "pnpm build && pnpm -r --no-bail test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate": "pnpm schema:sync && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.21.0",
+    "vitest": "^3.0.4"
+  }
+}
