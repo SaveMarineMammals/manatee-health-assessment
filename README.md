@@ -48,13 +48,17 @@ pnpm --filter @manatee/mobile start
 
 ## Layout
 
-| Path                | What it holds                                                                    |
-| ------------------- | -------------------------------------------------------------------------------- |
-| `src/mobile`        | The Expo app. Screens and native permissions, as little logic as possible.       |
-| `packages/core`     | Pure TypeScript domain logic. No React, no native, no I/O. Highest coverage bar. |
-| `packages/contract` | Version corpus and contract tests against the pinned platform schema.            |
-| `scripts/`          | Schema pin plumbing and the alarm audio render pipeline.                         |
-| `assets/audio/`     | Rendered alarm clips, committed, plus a manifest with per-file checksums.        |
+Everything we write and maintain lives under `src/`. `packages/` is reserved for third-party code
+vendored into the repo — empty today, since `@mmap/schema` is consumed through the `.mmap-platform`
+link rather than vendored.
+
+| Path            | What it holds                                                                    |
+| --------------- | -------------------------------------------------------------------------------- |
+| `src/mobile`    | The Expo app. Screens and native permissions, as little logic as possible.       |
+| `src/core`      | Pure TypeScript domain logic. No React, no native, no I/O. Highest coverage bar. |
+| `src/contract`  | Version corpus and contract tests against the pinned platform schema.            |
+| `scripts/`      | Schema pin plumbing and the alarm audio render pipeline.                         |
+| `assets/audio/` | Rendered alarm clips, committed, plus a manifest with per-file checksums.        |
 
 ## The schema pin
 
@@ -63,11 +67,11 @@ It is the contract boundary, and it exists because the app is used intensively f
 year — a phone in the field is routinely running a build pinned many months back.
 
 `scripts/sync-schema-pin.mjs` verifies the linked checkout matches the pin and generates
-`packages/core/src/generated/pin.ts`. Every record is stamped from that generated module rather than
+`src/core/src/generated/pin.ts`. Every record is stamped from that generated module rather than
 from a literal, so what the app reports is what it actually validated against.
 
 Bumping the pin means: update `schema-pin.json`, add a fixture directory under
-`packages/contract/fixtures/` for the new version, and confirm the **whole** corpus still passes.
+`src/contract/fixtures/` for the new version, and confirm the **whole** corpus still passes.
 Old versions are never removed — that is how we know next year's server still accepts last year's
 phone.
 
@@ -102,8 +106,8 @@ pnpm validate       # format, lint, typecheck, test
 The live sync contract runs against a real API and is skipped unless `MMAP_API_URL` is set:
 
 ```bash
-# from the platform checkout
-docker compose up -d postgres api
+# from the platform checkout — minio is required, the api depends on it
+docker compose up -d postgres minio api
 
 MMAP_API_URL=http://localhost:3001 pnpm --filter @manatee/contract test
 ```

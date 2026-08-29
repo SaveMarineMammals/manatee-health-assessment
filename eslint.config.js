@@ -20,7 +20,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '.mmap-platform/**',
       '**/.expo/**',
-      'packages/core/src/generated/**',
+      'src/core/src/generated/**',
     ],
   },
   js.configs.recommended,

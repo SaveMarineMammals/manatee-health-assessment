@@ -1,5 +1,8 @@
 packages:
+  # Everything we write and maintain.
   - 'src/*'
+  # Reserved for third-party packages vendored into the repo. Empty today —
+  # @mmap/schema is consumed through the .mmap-platform link, not vendored.
   - 'packages/*'
 
 # Expo and React Native resolve native modules by walking node_modules, which

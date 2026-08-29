@@ -2,6 +2,6 @@ dist/
 node_modules/
 .mmap-platform/
 .expo/
-packages/core/src/generated/
+src/core/src/generated/
 assets/audio/
 pnpm-lock.yaml

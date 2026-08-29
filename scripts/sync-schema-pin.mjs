@@ -1,6 +1,6 @@
 /**
  * Verifies the linked platform checkout matches schema-pin.json, then generates
- * packages/core/src/generated/pin.ts.
+ * src/core/src/generated/pin.ts.
  *
  * The generated module is the single place the app learns which protocol version
  * it was built against. Records are stamped from it, and preflight displays it —
@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const platformRoot = join(repoRoot, '.mmap-platform');
 const schemaRoot = join(platformRoot, 'packages', 'schema');
-const outDir = join(repoRoot, 'packages', 'core', 'src', 'generated');
+const outDir = join(repoRoot, 'src', 'core', 'src', 'generated');
 const outFile = join(outDir, 'pin.ts');
 
 const isCi = process.env.CI === 'true' || process.env.CI === '1';
@@ -62,7 +62,7 @@ function main() {
         `  schema-pin.json expects ${pin.protocol}@${pin.protocol_version}\n` +
         `  linked platform provides ${pin.protocol}@${entry.protocol_version}\n\n` +
         `If this bump is intentional, update schema-pin.json, add a corpus fixture for the new\n` +
-        `version under packages/contract/fixtures/, and confirm the whole corpus still passes.`,
+        `version under src/contract/fixtures/, and confirm the whole corpus still passes.`,
     );
   }
 
@@ -95,7 +95,7 @@ export const SCHEMA_COMMIT = ${JSON.stringify(pin.commit)} as const;
 
   console.log(
     `schema pin OK — ${pin.protocol}@${pin.protocol_version} ` +
-      `(${pin.commit.slice(0, 12)}) → packages/core/src/generated/pin.ts`,
+      `(${pin.commit.slice(0, 12)}) → src/core/src/generated/pin.ts`,
   );
 }
 

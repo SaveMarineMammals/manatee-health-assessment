@@ -15,10 +15,10 @@ Kotlin means two codebases for an app used one week a year.
 
 Everything that can be a pure function is one, in a package with no React and no native dependency.
 
-- `packages/core` — breath statistics, alarm state machine, outbox reducer, protocol stamping.
+- `src/core` — breath statistics, alarm state machine, outbox reducer, protocol stamping.
   Injected clock, no I/O.
-- `packages/db` (P1) — Drizzle schema, migrations, repositories. Same SQL on device and in Node tests.
-- `packages/alarm-output` (P2) — the only code touching audio, haptics and notifications, behind a
+- `src/db` (P1) — Drizzle schema, migrations, repositories. Same SQL on device and in Node tests.
+- `src/alarm-output` (P2) — the only code touching audio, haptics and notifications, behind a
   narrow interface so the engine tests against a fake.
 - `src/mobile` — screens and native permissions.
 
@@ -62,7 +62,7 @@ per assessment, so the time series survives inside the existing schema.
 
 Known upstream gap: `respiratory_rate` is `z.number().int().positive()`, and dividing by five almost
 never yields an integer. Four breaths in five minutes is 0.8/min; a quiet window at one breath is
-0.2/min, which rounds to 0 and fails `positive()` outright. `packages/contract` pins this as an
+0.2/min, which rounds to 0 and fails `positive()` outright. `src/contract` pins this as an
 executable test — when the upstream relaxation lands, that test fails and tells us to move the
 fractional fixture into the corpus.
 
@@ -80,12 +80,12 @@ On a working boat any single channel can lose.
 ## Schema versioning
 
 The app is pinned to an exact platform commit and protocol version, recorded in `schema-pin.json` and
-code-generated into `packages/core`. Records are stamped from the generated module, never a literal.
+code-generated into `src/core`. Records are stamped from the generated module, never a literal.
 
 Policy this app assumes of the platform: within a major protocol version, only **additive and
 constraint-relaxing** changes. Anything narrowing requires a new protocol alongside the old one.
 
-The version corpus in `packages/contract/fixtures/` keeps one golden payload set per version ever
+The version corpus in `src/contract/fixtures/` keeps one golden payload set per version ever
 shipped, asserted on every build. Nothing is removed from it.
 
 **Known platform blocker:** `packages/schema/src/manatee_v1/validate.ts` checks `protocol_version` by

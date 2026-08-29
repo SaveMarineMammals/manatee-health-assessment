@@ -9,7 +9,7 @@ expo-env.d.ts
 .mmap-platform
 
 # Generated from schema-pin.json — never edit by hand
-packages/core/src/generated/
+src/core/src/generated/
 
 .env
 .env.local
