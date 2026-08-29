@@ -66,6 +66,13 @@ never yields an integer. Four breaths in five minutes is 0.8/min; a quiet window
 executable test — when the upstream relaxation lands, that test fails and tells us to move the
 fractional fixture into the corpus.
 
+Confirmed against a live API (platform `50809ec`, 2026-08-29). Both values are rejected at
+`POST /v1/sync/batch` with HTTP 400:
+
+```
+value: Expected integer, received float
+```
+
 Raw breath events stay on the device and in the export file until a `breath_event` type exists
 upstream.
 
@@ -93,6 +100,15 @@ exact string equality against a compile-time constant, and the API runs that on 
 assessment. Any schema bump therefore rejects every record from every older client. For an annually
 used app that is the normal case, not an edge case. The fix is range-accept (same major, record
 version ≤ server version) with per-version validator dispatch. Tracked upstream.
+
+Confirmed against a live API (platform `50809ec`, 2026-08-29). An otherwise valid assessment
+carrying `protocol_version: "1.0.1"` is rejected at `POST /v1/sync/batch` with HTTP 400:
+
+```
+protocol_version: protocol_version must be 1.0.0 for manatee_v1 assessments
+```
+
+A patch-level bump on the server is therefore enough to strand a whole season of captured data.
 
 ## Operations
 
