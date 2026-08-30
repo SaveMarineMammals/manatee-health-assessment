@@ -21,21 +21,21 @@ jobs:
     name: Lint, typecheck, test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read pinned platform commit
         id: pin
         run: echo "commit=$(jq -r .commit schema-pin.json)" >> "$GITHUB_OUTPUT"
 
       - name: Check out platform at the pinned commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.PLATFORM_REPO }}
           ref: ${{ steps.pin.outputs.commit }}
           path: .mmap-platform
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -57,7 +57,7 @@ jobs:
     name: Live sync contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Resolve platform ref
         id: ref
@@ -71,14 +71,14 @@ jobs:
           fi
 
       - name: Check out platform
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.PLATFORM_REPO }}
           ref: ${{ steps.ref.outputs.value }}
           path: .mmap-platform
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -130,7 +130,7 @@ jobs:
     needs: quality
     if: github.event_name == 'push' || github.event_name == 'schedule'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check for Expo credentials
         id: creds
@@ -151,21 +151,21 @@ jobs:
 
       - name: Check out platform at the pinned commit
         if: steps.creds.outputs.available == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.PLATFORM_REPO }}
           ref: ${{ steps.pin.outputs.commit }}
           path: .mmap-platform
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: steps.creds.outputs.available == 'true'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.creds.outputs.available == 'true'
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - uses: expo/expo-github-action@v8
+      - uses: expo/expo-github-action@v9
         if: steps.creds.outputs.available == 'true'
         with:
           eas-version: latest
