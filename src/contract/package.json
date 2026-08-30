@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Version corpus and contract tests against the pinned MMAP platform schema",
   "scripts": {
+    "pretypecheck": "pnpm --filter @manatee/core build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @manatee/core build",
     "test": "vitest run"
   },
   "dependencies": {
