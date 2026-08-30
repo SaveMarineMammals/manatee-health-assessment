@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react';
 import { useFonts } from 'expo-font';
 import {
   IBMPlexSans_400Regular,
@@ -6,51 +7,36 @@ import {
 } from '@expo-google-fonts/ibm-plex-sans';
 import { Literata_600SemiBold } from '@expo-google-fonts/literata';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import {
-  FONTS,
   PROTOCOL,
   PROTOCOL_VERSION,
-  RADIUS,
-  REQUIRED_AUDIO_ASSET_IDS,
-  SCHEMA_COMMIT,
-  SPACE,
-  TYPE,
+  anchorAfterResume,
+  anchorAtStart,
   chrome,
-  validateAudioManifest,
+  type BreathEvent,
+  type ElapsedAnchor,
 } from '@manatee/core';
-import audioManifest from '../../assets/audio/manifest.json';
+import type { Assessment } from '@manatee/db';
+import { clock, getRepository, newId } from './src/data/database';
+import { StartScreen } from './src/screens/StartScreen';
+import { TrackerScreen } from './src/screens/TrackerScreen';
 
 /**
- * P0 shell — the seed of the preflight screen.
+ * P1 — start an assessment, track breaths, end it.
  *
- * It exists to prove the foundations are wired end to end: the schema pin and
- * brand tokens have been code-generated into @manatee/core and read by the app,
- * and the rendered alarm assets are present and valid.
+ * Navigation is a single piece of state rather than a router: there are two
+ * screens, and the tracker must never be one back-gesture away from being
+ * dismissed mid-animal.
  *
- * Styling is the platform field PWA's dark theme, from the same @mmap/brand
- * tokens it uses, so the two apps read as one product. The breath tracker in P1
- * is the deliberate exception — see docs/DESIGN.md.
+ * The spoken alarm lands in P2, the summary and measurement forms in P3, sync
+ * in P4. Nothing here talks to the network.
  */
 
-const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
-    </View>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{title}</Text>
-      {children}
-    </View>
-  );
+interface Session {
+  assessment: Assessment;
+  anchor: ElapsedAnchor;
+  events: BreathEvent[];
 }
 
 export default function App() {
@@ -61,170 +47,114 @@ export default function App() {
     Literata_600SemiBold,
   });
 
-  const problems = validateAudioManifest(audioManifest);
-  const audioReady = problems.length === 0;
+  const [session, setSession] = useState<Session | null>(null);
+  const [restored, setRestored] = useState(false);
 
-  if (!fontsLoaded) {
-    // Brand type is not decoration here — a half-rendered preflight invites
-    // someone to skim past a check they were meant to read.
+  // An assessment left open by a force quit is resumed rather than lost. The
+  // monotonic origin cannot survive the process, so elapsed time is re-anchored
+  // from the wall clock once, floored at the last recorded breath.
+  useEffect(() => {
+    const repo = getRepository();
+    const open = repo.getOpenAssessment();
+    if (open) {
+      setSession({
+        assessment: open,
+        anchor: anchorAfterResume(clock, open.startedAt, repo.lastElapsedMs(open.id)),
+        events: repo.listBreaths(open.id),
+      });
+    }
+    setRestored(true);
+  }, []);
+
+  const handleStart = useCallback((name: string) => {
+    const repo = getRepository();
+    const assessment = repo.createAssessment({
+      id: newId(),
+      name,
+      protocol: PROTOCOL,
+      protocolVersion: PROTOCOL_VERSION,
+      startedAt: clock.nowUtc(),
+    });
+    setSession({ assessment, anchor: anchorAtStart(clock), events: [] });
+  }, []);
+
+  const handleRecordBreath = useCallback((elapsedMs: number) => {
+    setSession((current) => {
+      if (!current) return current;
+      const event = getRepository().recordBreath({
+        id: newId(),
+        assessmentId: current.assessment.id,
+        // Wall clock for the record; elapsed milliseconds for every derivation.
+        recordedAt: clock.nowUtc(),
+        elapsedMs,
+      });
+      return { ...current, events: [...current.events, event] };
+    });
+  }, []);
+
+  const handleVoidLast = useCallback(() => {
+    setSession((current) => {
+      if (!current) return current;
+      const last = [...current.events].reverse().find((event) => !event.voidedAt);
+      if (!last) return current;
+
+      const voidedAt = clock.nowUtc();
+      getRepository().voidBreath(last.id, voidedAt);
+      return {
+        ...current,
+        events: current.events.map((event) =>
+          event.id === last.id ? { ...event, voidedAt } : event,
+        ),
+      };
+    });
+  }, []);
+
+  const handleEnd = useCallback(() => {
+    setSession((current) => {
+      if (current) getRepository().endAssessment(current.assessment.id, clock.nowUtc());
+      return null;
+    });
+  }, []);
+
+  if (!fontsLoaded || !restored) {
     return (
-      <View style={[styles.screen, styles.centred]}>
+      <View style={styles.loading}>
         <StatusBar style="light" />
         <ActivityIndicator color={chrome.accent} />
       </View>
     );
   }
 
+  if (!session) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <StartScreen onStart={handleStart} />
+      </>
+    );
+  }
+
   return (
-    <View style={styles.screen}>
-      <StatusBar style="light" />
-
-      <View style={styles.topBar}>
-        <View style={styles.chip}>
-          <Text style={styles.chipText}>FIELD</Text>
-        </View>
-        <Text style={styles.topBarTitle}>Preflight</Text>
-        <View
-          style={[
-            styles.statusDot,
-            { backgroundColor: audioReady ? chrome.success : chrome.danger },
-          ]}
-        />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.appName}>Manatee Assessment</Text>
-
-        <Card title="Data contract">
-          <Row label="PROTOCOL" value={PROTOCOL} />
-          <Row label="VERSION" value={PROTOCOL_VERSION} />
-          <Row label="SCHEMA" value={SCHEMA_COMMIT.slice(0, 12)} />
-        </Card>
-
-        <Card title="Alarm audio">
-          <Row
-            label="ASSETS"
-            value={`${audioManifest.assets.length} of ${REQUIRED_AUDIO_ASSET_IDS.length}`}
-          />
-          <View
-            style={[styles.status, { borderColor: audioReady ? chrome.success : chrome.danger }]}
-          >
-            <Text
-              style={[styles.statusText, { color: audioReady ? chrome.success : chrome.danger }]}
-            >
-              {audioReady ? 'READY' : 'INCOMPLETE'}
-            </Text>
-          </View>
-          {problems.map((problem) => (
-            <Text key={`${problem.assetId}:${problem.problem}`} style={styles.problem}>
-              {problem.assetId}: {problem.problem}
-            </Text>
-          ))}
-        </Card>
-
-        <Text style={styles.footnote}>
-          P0 foundations. The breath tracker lands in P1; the spoken alarm and the full preflight
-          checks land in P2.
-        </Text>
-      </ScrollView>
-    </View>
+    <>
+      <StatusBar style="dark" />
+      <TrackerScreen
+        assessmentName={session.assessment.name}
+        events={session.events}
+        clock={clock}
+        anchor={session.anchor}
+        onRecordBreath={handleRecordBreath}
+        onVoidLast={handleVoidLast}
+        onEnd={handleEnd}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: chrome.bg },
-  centred: { alignItems: 'center', justifyContent: 'center' },
-
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACE.sm,
-    paddingHorizontal: SPACE.lg,
-    paddingTop: SPACE.xxl + SPACE.lg,
-    paddingBottom: SPACE.md,
-    backgroundColor: chrome.surface,
-    borderBottomWidth: 2,
-    borderBottomColor: chrome.border,
-  },
-  chip: {
-    backgroundColor: chrome.accent,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACE.sm,
-    paddingVertical: SPACE.xs,
-  },
-  chipText: {
-    fontFamily: mono,
-    fontSize: TYPE.meta,
-    letterSpacing: 1.2,
-    color: chrome.onAccent,
-    fontWeight: '700',
-  },
-  topBarTitle: {
+  loading: {
     flex: 1,
-    fontFamily: FONTS.uiBold,
-    fontSize: TYPE.title,
-    color: chrome.text,
-  },
-  statusDot: { width: 14, height: 14, borderRadius: 7 },
-
-  content: { padding: SPACE.lg, gap: SPACE.lg },
-
-  appName: {
-    fontFamily: FONTS.brand,
-    fontSize: TYPE.heading,
-    color: chrome.text,
-    marginTop: SPACE.sm,
-  },
-
-  card: {
-    borderWidth: 1,
-    borderColor: chrome.border,
-    borderRadius: RADIUS.xl,
-    padding: SPACE.lg,
-    gap: SPACE.sm,
-    backgroundColor: chrome.surface,
-  },
-  cardTitle: {
-    fontFamily: FONTS.uiBold,
-    fontSize: TYPE.title,
-    color: chrome.text,
-    marginBottom: SPACE.xs,
-  },
-
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    gap: SPACE.md,
-  },
-  rowLabel: {
-    fontFamily: mono,
-    fontSize: TYPE.meta,
-    letterSpacing: 1,
-    color: chrome.textMuted,
-  },
-  rowValue: {
-    fontFamily: mono,
-    fontSize: TYPE.small,
-    color: chrome.accent,
-    fontVariant: ['tabular-nums'],
-  },
-
-  status: {
-    alignSelf: 'flex-start',
-    borderWidth: 2,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACE.md,
-    paddingVertical: SPACE.xs,
-    marginTop: SPACE.xs,
-  },
-  statusText: { fontFamily: FONTS.uiBold, fontSize: TYPE.small, letterSpacing: 1 },
-  problem: { fontFamily: FONTS.ui, fontSize: TYPE.small, color: chrome.danger },
-
-  footnote: {
-    fontFamily: FONTS.ui,
-    fontSize: TYPE.small,
-    color: chrome.textMuted,
-    lineHeight: 26,
+    backgroundColor: chrome.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

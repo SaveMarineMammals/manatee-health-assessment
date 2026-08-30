@@ -13,7 +13,12 @@ nodeLinker: hoisted
 # vitest needs esbuild, whose platform binary arrives via a postinstall script.
 # Approved here so installs never stop to ask — including in CI.
 allowBuilds:
+  # vitest needs esbuild's platform binary, installed by a postinstall script.
   esbuild: true
+  # Optional native accelerators for file watching and module resolution. Both
+  # have JS fallbacks, and declining them keeps installs free of native builds.
+  '@parcel/watcher': false
+  unrs-resolver: false
 
 # esbuild, rollup and lightningcss each ship a prebuilt binary per platform as
 # optional dependencies. Without this, every install pulls all ~25 of them.

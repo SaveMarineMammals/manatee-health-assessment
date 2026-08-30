@@ -93,6 +93,11 @@ Good for laying out screens. It is a preview target only and never ships: no hap
 session, no silent-switch or Do Not Disturb behaviour — none of the things this app exists to get
 right. Never conclude the alarm works because it worked here.
 
+**Known limitation: the breath tracker does not currently run on web.** expo-sqlite's WebAssembly
+build fails to initialise in this setup and the page renders blank. Persistence is a native concern
+and web never ships, so this is untriaged rather than broken — but it does mean the tracker has to be
+previewed on a device or an emulator. The start screen and preflight are unaffected.
+
 ### In a simulator
 
 Needs Android Studio (SDK + JDK), or Xcode on macOS for iOS. Neither is required for the two options
