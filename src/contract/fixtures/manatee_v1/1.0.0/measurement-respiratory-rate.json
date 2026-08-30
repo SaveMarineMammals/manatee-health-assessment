@@ -1,0 +1,11 @@
+{
+  "id": "c9a41e73-2d18-4f56-b0e2-8a7c3f1d5e60",
+  "assessment_id": "6f1c2a54-9c3e-4a1b-8f7d-2b5e9a0c4d11",
+  "measurement_type": "respiratory_rate",
+  "recorded_at": "2026-02-14T14:10:00.000Z",
+  "value": 2,
+  "unit": "breaths/min",
+  "method": "derived from breath log",
+  "notes": "window 1 of 9; 10 breaths in 5 min; longest gap 41 s",
+  "sequence": 1
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@manatee/contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Version corpus and contract tests against the pinned MMAP platform schema",
+  "scripts": {
+    "pretypecheck": "pnpm --filter @manatee/core build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @manatee/core build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@manatee/core": "workspace:*",
+    "@mmap/schema": "link:../../.mmap-platform/packages/schema"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  }
+}

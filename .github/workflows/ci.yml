@@ -1,0 +1,199 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Nightly, against the platform's main rather than the pin, so upstream
+    # drift surfaces the day it lands instead of at the next pin bump.
+    - cron: '0 6 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PLATFORM_REPO: SaveMarineMammals/marine-mammal-assessment-platform
+
+jobs:
+  quality:
+    name: Lint, typecheck, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read pinned platform commit
+        id: pin
+        run: echo "commit=$(jq -r .commit schema-pin.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out platform at the pinned commit
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          ref: ${{ steps.pin.outputs.commit }}
+          path: .mmap-platform
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Build @mmap/schema from the pinned checkout
+        working-directory: .mmap-platform
+        run: |
+          pnpm install --frozen-lockfile --filter @mmap/schema...
+          pnpm --filter @mmap/schema build
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm sync
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  contract:
+    name: Live sync contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve platform ref
+        id: ref
+        # Scheduled runs test against the platform's main so upstream changes
+        # that would break this app are caught before we bump the pin.
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "value=main" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(jq -r .commit schema-pin.json)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out platform
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          ref: ${{ steps.ref.outputs.value }}
+          path: .mmap-platform
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Start the platform API
+        working-directory: .mmap-platform
+        run: |
+          # minio is named explicitly because the api service depends on it
+          # being healthy; the API runs its own migrations on boot.
+          docker compose up -d --build postgres minio api
+          for _ in $(seq 1 60); do
+            curl -sf http://localhost:3001/v1/health && break
+            sleep 2
+          done
+          curl -sf http://localhost:3001/v1/health
+
+      - name: Build @mmap/schema
+        working-directory: .mmap-platform
+        run: |
+          pnpm install --frozen-lockfile --filter @mmap/schema...
+          pnpm --filter @mmap/schema build
+
+      - run: pnpm install --frozen-lockfile
+
+      # Scheduled runs deliberately skip the pin check: the whole point is to
+      # exercise a platform newer than the pin.
+      - name: Verify pin and sync brand tokens
+        if: github.event_name != 'schedule'
+        run: pnpm sync
+
+      - name: Sync for drift run
+        if: github.event_name == 'schedule'
+        run: pnpm sync
+        continue-on-error: true
+
+      - name: Run the version corpus against the live API
+        env:
+          MMAP_API_URL: http://localhost:3001
+        run: pnpm --filter @manatee/contract test
+
+      - name: Platform logs on failure
+        if: failure()
+        working-directory: .mmap-platform
+        run: docker compose logs --tail 200
+
+  build:
+    name: EAS build
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check for Expo credentials
+        id: creds
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -n "$EXPO_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::EXPO_TOKEN is not set — skipping the EAS build. Add it in repository secrets to produce installable builds."
+          fi
+
+      - name: Read pinned platform commit
+        if: steps.creds.outputs.available == 'true'
+        id: pin
+        run: echo "commit=$(jq -r .commit schema-pin.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out platform at the pinned commit
+        if: steps.creds.outputs.available == 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          ref: ${{ steps.pin.outputs.commit }}
+          path: .mmap-platform
+
+      - uses: pnpm/action-setup@v6
+        if: steps.creds.outputs.available == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.creds.outputs.available == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - uses: expo/expo-github-action@v9
+        if: steps.creds.outputs.available == 'true'
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build @mmap/schema
+        if: steps.creds.outputs.available == 'true'
+        working-directory: .mmap-platform
+        run: |
+          pnpm install --frozen-lockfile --filter @mmap/schema...
+          pnpm --filter @mmap/schema build
+
+      - name: Install and prepare
+        if: steps.creds.outputs.available == 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm sync
+          pnpm --filter @manatee/core build
+
+      - name: Verify the committed alarm audio is intact
+        if: steps.creds.outputs.available == 'true'
+        # The clips are committed rather than re-rendered: system voices differ
+        # per machine, and a build must ship the audio that was actually reviewed.
+        run: |
+          jq -r '.assets[] | "\(.sha256)  assets/audio/\(.file)"' assets/audio/manifest.json \
+            | sha256sum --check --strict
+
+      - name: EAS build (preview)
+        if: steps.creds.outputs.available == 'true'
+        working-directory: src/mobile
+        run: eas build --platform all --profile preview --non-interactive --no-wait

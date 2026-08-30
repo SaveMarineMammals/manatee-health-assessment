@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.expo/
+.turbo/
+*.tsbuildinfo
+expo-env.d.ts
+
+# Local checkout of the MMAP platform, created by scripts/link-platform.mjs
+.mmap-platform
+
+# Generated from schema-pin.json — never edit by hand
+src/core/src/generated/
+
+.env
+.env.local
+.DS_Store

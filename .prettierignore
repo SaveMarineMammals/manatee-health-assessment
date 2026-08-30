@@ -1,0 +1,7 @@
+dist/
+node_modules/
+.mmap-platform/
+.expo/
+src/core/src/generated/
+assets/audio/
+pnpm-lock.yaml

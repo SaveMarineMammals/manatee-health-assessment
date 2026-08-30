@@ -1,0 +1,8 @@
+{
+  "$comment": "The MMAP platform contract this app is built against. Bump deliberately, never incidentally: a bump is only allowed to land when the contract test and the full version corpus are green. See scripts/sync-schema-pin.mjs.",
+  "repository": "https://github.com/SaveMarineMammals/marine-mammal-assessment-platform.git",
+  "commit": "50809ecc9cf3513dd08bc6d9c44a359ada7f2d9f",
+  "package": "@mmap/schema",
+  "protocol": "manatee_v1",
+  "protocol_version": "1.0.0"
+}

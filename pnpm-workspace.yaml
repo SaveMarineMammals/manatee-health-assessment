@@ -1,0 +1,32 @@
+packages:
+  # Everything we write and maintain.
+  - 'src/*'
+  # Reserved for third-party packages vendored into the repo. Empty today —
+  # @mmap/schema is consumed through the .mmap-platform link, not vendored.
+  - 'packages/*'
+
+# Expo and React Native resolve native modules by walking node_modules, which
+# pnpm's default symlinked layout breaks. Hoist so Metro and the native build
+# systems see a flat tree.
+nodeLinker: hoisted
+
+# vitest needs esbuild, whose platform binary arrives via a postinstall script.
+# Approved here so installs never stop to ask — including in CI.
+allowBuilds:
+  esbuild: true
+
+# esbuild, rollup and lightningcss each ship a prebuilt binary per platform as
+# optional dependencies. Without this, every install pulls all ~25 of them.
+# Developers are on macOS or Windows; CI is linux.
+supportedArchitectures:
+  os:
+    - win32
+    - darwin
+    - linux
+  cpu:
+    - x64
+    - arm64
+
+# Scripts do not re-verify the lockfile before running. That check spawns a
+# nested install, which turns a flaky registry into a failed test run.
+verifyDepsBeforeRun: false
