@@ -42,3 +42,21 @@ export type { BreathBin, BreathEvent, BreathSummary, TapDecision } from './breat
 
 export { uuidv7 } from './ids.js';
 export type { RandomBytes } from './ids.js';
+
+export {
+  ACK_SILENCE_MS,
+  ALARM_LADDER,
+  ALARM_LADDER_VERSION,
+  REPEAT_EVERY_MS,
+  alarmTransition,
+  evaluateAlarm,
+  levelFor,
+} from './alarm.js';
+export type {
+  AlarmEvent,
+  AlarmEventKind,
+  AlarmInput,
+  AlarmSeverity,
+  AlarmState,
+  AlarmStep,
+} from './alarm.js';

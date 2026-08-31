@@ -89,6 +89,29 @@ worse than no alarm, because the crew believes it is covered.
 `src/core/src/audio-manifest.test.ts` asserts against the real committed manifest, not just fixtures
 — so a bad render fails in CI rather than on a boat.
 
+## What the app actually configures
+
+| Concern                | iOS                                                                    | Android                                                                           |
+| ---------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Silent switch / DND    | `playsInSilentMode: true` on the audio session. Implemented.           | Notification channel with `AndroidAudioUsage.ALARM` and `bypassDnd`. Implemented. |
+| Background / locked    | `shouldPlayInBackground` plus `UIBackgroundModes: audio`. Implemented. | Max-importance channel, public on the lock screen. Implemented.                   |
+| Backstop when pocketed | Time-sensitive notification. Implemented.                              | Alarm-channel notification. Implemented.                                          |
+| Highest assurance      | Critical Alerts entitlement — **not applied for yet**, see RELEASE.md. | Full-screen intent — **not implemented**.                                         |
+
+### Known gap: in-app audio does not use the Android alarm stream
+
+`expo-audio` does not expose Android's `AudioAttributes.USAGE_ALARM`, so the clips played by the app
+itself go out the media stream — which means media volume, and suppression under Do Not Disturb.
+
+The notification backstop _does_ set alarm usage, so an alarm still sounds through DND via that path.
+But the two channels are not equivalent, and relying on the notification for the DND case is weaker
+than it looks. Closing this properly needs a small config plugin setting the audio attributes on the
+Android player, or a custom native module.
+
+**Until then, Do Not Disturb must be off.** Preflight tells the operator to check it; that is a
+procedural control standing in for a technical one, which is worth knowing when reading the
+pre-season checklist.
+
 ## Open question for review
 
 The rendered sentences run about **7.3 seconds** each, because the synthesiser rate is set slow for

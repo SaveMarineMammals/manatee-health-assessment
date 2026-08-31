@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { intervalsFrom, summarise } from '@manatee/core';
 import { createNodeDriver } from './node-driver.js';
 import { MIGRATIONS, SCHEMA_VERSION, migrate } from './migrations.js';
-import { createRepository, type Repository } from './repository.js';
+import { createAlarmRepository, createRepository, type Repository } from './repository.js';
 
 const START = '2026-02-14T14:05:00.000Z';
 
@@ -219,5 +219,54 @@ describe('surviving a force quit', () => {
       }).sequence,
     ).toBe(4);
     second.close();
+  });
+});
+
+describe('alarm audit trail', () => {
+  it('records raises, escalations, acknowledgements and clears in order', () => {
+    const id = openAssessment();
+    const alarms = createAlarmRepository(driver, () => clockValue);
+
+    const trail = [
+      { kind: 'raised', level: 1, elapsedMs: 60_000, sinceLastBreathMs: 60_000 },
+      { kind: 'acknowledged', level: 1, elapsedMs: 65_000, sinceLastBreathMs: 65_000 },
+      { kind: 'escalated', level: 2, elapsedMs: 120_000, sinceLastBreathMs: 120_000 },
+      { kind: 'cleared', level: 2, elapsedMs: 131_000, sinceLastBreathMs: 0 },
+    ];
+    for (const [index, entry] of trail.entries()) {
+      alarms.record({
+        id: `al${index}`,
+        assessmentId: id,
+        ladderVersion: '0.1.0-draft',
+        occurredAt: new Date(Date.parse(START) + entry.elapsedMs).toISOString(),
+        ...entry,
+      });
+    }
+
+    const stored = alarms.list(id);
+    expect(stored.map((e) => e.kind)).toEqual(['raised', 'acknowledged', 'escalated', 'cleared']);
+    expect(stored.map((e) => e.level)).toEqual([1, 1, 2, 2]);
+  });
+
+  it('stamps the ladder version, so a threshold change between seasons is visible', () => {
+    // The thresholds are a veterinary decision. Which set was in force when an
+    // alarm fired has to be recoverable from the data, not from a build.
+    const id = openAssessment();
+    const alarms = createAlarmRepository(driver, () => clockValue);
+    alarms.record({
+      id: 'al1',
+      assessmentId: id,
+      kind: 'raised',
+      level: 1,
+      ladderVersion: '0.1.0-draft',
+      occurredAt: START,
+      elapsedMs: 60_000,
+      sinceLastBreathMs: 60_000,
+    });
+    expect(alarms.list(id)[0]?.ladderVersion).toBe('0.1.0-draft');
+  });
+
+  it('is empty for an assessment where nothing was raised', () => {
+    expect(createAlarmRepository(driver, () => clockValue).list(openAssessment())).toEqual([]);
   });
 });

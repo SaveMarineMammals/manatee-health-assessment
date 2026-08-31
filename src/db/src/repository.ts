@@ -205,3 +205,84 @@ export function createRepository(driver: SqlDriver, now: () => string) {
 }
 
 export type Repository = ReturnType<typeof createRepository>;
+
+export interface StoredAlarmEvent {
+  id: string;
+  kind: string;
+  level: number;
+  ladderVersion: string;
+  occurredAt: string;
+  elapsedMs: number;
+  sinceLastBreathMs: number;
+}
+
+export interface RecordAlarmEventInput {
+  id: string;
+  assessmentId: string;
+  kind: string;
+  level: number;
+  ladderVersion: string;
+  occurredAt: string;
+  elapsedMs: number;
+  sinceLastBreathMs: number;
+}
+
+interface AlarmRow {
+  id: string;
+  kind: string;
+  level: number;
+  ladder_version: string;
+  occurred_at: string;
+  elapsed_ms: number;
+  since_last_breath_ms: number;
+}
+
+/**
+ * The alarm audit trail.
+ *
+ * Separate from createRepository so the tracker can take it without taking
+ * everything; both share one driver and therefore one transaction boundary.
+ */
+export function createAlarmRepository(driver: SqlDriver, now: () => string) {
+  return {
+    record(input: RecordAlarmEventInput): void {
+      driver.run(
+        `INSERT INTO alarm_events
+           (id, assessment_id, kind, level, ladder_version,
+            occurred_at, elapsed_ms, since_last_breath_ms, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          input.id,
+          input.assessmentId,
+          input.kind,
+          input.level,
+          input.ladderVersion,
+          input.occurredAt,
+          input.elapsedMs,
+          input.sinceLastBreathMs,
+          now(),
+        ],
+      );
+    },
+
+    list(assessmentId: string): StoredAlarmEvent[] {
+      return driver
+        .all<AlarmRow>(
+          `SELECT id, kind, level, ladder_version, occurred_at, elapsed_ms, since_last_breath_ms
+             FROM alarm_events WHERE assessment_id = ? ORDER BY elapsed_ms ASC`,
+          [assessmentId],
+        )
+        .map((row) => ({
+          id: row.id,
+          kind: row.kind,
+          level: row.level,
+          ladderVersion: row.ladder_version,
+          occurredAt: row.occurred_at,
+          elapsedMs: row.elapsed_ms,
+          sinceLastBreathMs: row.since_last_breath_ms,
+        }));
+    },
+  };
+}
+
+export type AlarmRepository = ReturnType<typeof createAlarmRepository>;

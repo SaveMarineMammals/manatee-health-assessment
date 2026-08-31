@@ -7,8 +7,8 @@ hardware — outdoors — inside a month. Everything after that is comparatively
 | ----------------------------------------------------------- | -------- | --------- |
 | [P0 Foundations](#p0-foundations)                           | **Done** | 1 week    |
 | [P1 Breath tracker](#p1-breath-tracker)                     | **Done** | 2 weeks   |
-| [P2 Spoken alarm](#p2-spoken-alarm)                         | Next     | 1.5 weeks |
-| [P3 Summary and measurements](#p3-summary-and-measurements) | Pending  | 1.5 weeks |
+| [P2 Spoken alarm](#p2-spoken-alarm)                         | **Done** | 1.5 weeks |
+| [P3 Summary and measurements](#p3-summary-and-measurements) | Next     | 1.5 weeks |
 | [P4 Sync](#p4-sync)                                         | Pending  | 2 weeks   |
 | [P5 Photographs](#p5-photographs)                           | Pending  | 1.5 weeks |
 | [P6 Hardening and UAT](#p6-hardening-and-uat)               | Pending  | 2 weeks   |
@@ -45,14 +45,26 @@ file-backed database across driver instances; the outdoor, gloved, hour-long hal
 
 ## P2 Spoken alarm
 
-Audio session, pre-rendered utterances, repeat and escalation, background and lock-screen behaviour,
-haptics, preflight screen, developer trigger panel.
+**Done.** Audio session, pre-rendered utterances, repeat and escalation, acknowledgement, haptics,
+the notification backstop, the alarm audit trail, and the preflight screen that refuses to continue
+until an operator has played the alarm and confirmed they heard it.
 
-Needs a development build — Expo Go cannot test custom native audio. See
-[RELEASE.md](RELEASE.md#development-builds-become-mandatory-at-p2).
+The engine is a pure function in `src/core`; the scheduler in `src/alarm-output` holds the memory
+between ticks and performs the effects through a four-method interface. Both are exercised on CI
+against a fake, which is why escalation and acknowledgement have exhaustive tests without a phone.
 
-**Gate:** heard and understood from across a running boat with the phone locked in a dry bag; alarm
-state readable in direct sun through polarised lenses.
+Two behaviours worth knowing: escalation overrides an acknowledgement, because crossing a rung means
+the situation got worse; and the acknowledgement window is deliberately shorter than the gap between
+rungs, so a silenced alarm re-asserts itself rather than only reappearing on escalation.
+
+**Known gap:** in-app audio does not use the Android alarm stream — `expo-audio` does not expose it.
+The notification backstop does, so DND is covered by that path, but closing it properly needs a
+config plugin. Until then Do Not Disturb must be off, which preflight tells the operator.
+See [ALARM-AUDIO.md](ALARM-AUDIO.md#known-gap-in-app-audio-does-not-use-the-android-alarm-stream).
+
+**Gate — not yet met:** heard and understood from across a running boat with the phone locked in a
+dry bag; alarm state readable in direct sun through polarised lenses. Both need a development build
+on hardware — Expo Go cannot load custom native audio.
 
 ## P3 Summary and measurements
 
