@@ -52,6 +52,29 @@ export const MIGRATIONS: readonly string[] = [
   CREATE UNIQUE INDEX breath_events_sequence
     ON breath_events (assessment_id, sequence);
   `,
+
+  // 2 — the alarm audit trail
+  //
+  // What the app told the team and when. Scientifically useful on its own,
+  // and if an animal is ever lost it is the record of what was raised,
+  // silenced and cleared. Append-only: acknowledgements are their own rows
+  // rather than an update, so the sequence stays readable.
+  `
+  CREATE TABLE alarm_events (
+    id                   TEXT PRIMARY KEY,
+    assessment_id        TEXT NOT NULL REFERENCES assessments(id),
+    kind                 TEXT NOT NULL,
+    level                INTEGER NOT NULL,
+    ladder_version       TEXT NOT NULL,
+    occurred_at          TEXT NOT NULL,
+    elapsed_ms           INTEGER NOT NULL,
+    since_last_breath_ms INTEGER NOT NULL,
+    created_at           TEXT NOT NULL
+  );
+
+  CREATE INDEX alarm_events_by_assessment
+    ON alarm_events (assessment_id, elapsed_ms);
+  `,
 ];
 
 /** The schema version this build expects. */

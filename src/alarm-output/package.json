@@ -1,0 +1,30 @@
+{
+  "name": "@manatee/alarm-output",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The alarm output contract, a fake for tests, and the scheduler that drives them",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "pretypecheck": "pnpm --filter @manatee/core build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @manatee/core build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@manatee/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  }
+}

@@ -40,6 +40,19 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-font", "expo-sqlite"]
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": ["../../assets/audio/no-breath-60s.wav"]
+        }
+      ]
+    ]
   }
 }

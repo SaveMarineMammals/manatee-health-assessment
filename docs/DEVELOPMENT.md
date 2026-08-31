@@ -44,13 +44,15 @@ Everything we write and maintain lives under `src/`. `packages/` is reserved for
 vendored into the repo — empty today, since `@mmap/schema` is consumed through the `.mmap-platform`
 link rather than vendored.
 
-| Path            | What it holds                                                                    |
-| --------------- | -------------------------------------------------------------------------------- |
-| `src/mobile`    | The Expo app. Screens and native permissions, as little logic as possible.       |
-| `src/core`      | Pure TypeScript domain logic. No React, no native, no I/O. Highest coverage bar. |
-| `src/contract`  | Version corpus and contract tests against the pinned platform schema.            |
-| `scripts/`      | Schema pin plumbing and the alarm audio render pipeline.                         |
-| `assets/audio/` | Rendered alarm clips, committed, plus a manifest with per-file checksums.        |
+| Path               | What it holds                                                                    |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `src/mobile`       | The Expo app. Screens and native permissions, as little logic as possible.       |
+| `src/core`         | Pure TypeScript domain logic. No React, no native, no I/O. Highest coverage bar. |
+| `src/db`           | SQLite schema, migrations and repositories. No native dependency.                |
+| `src/alarm-output` | The alarm output contract, a fake for tests, and the scheduler that drives them. |
+| `src/contract`     | Version corpus and contract tests against the pinned platform schema.            |
+| `scripts/`         | Schema pin plumbing and the alarm audio render pipeline.                         |
+| `assets/audio/`    | Rendered alarm clips, committed, plus a manifest with per-file checksums.        |
 
 The split is deliberate: anything that can be a pure function is one, in a package with no React and
 no native dependency, so it can be tested in milliseconds without a device. See

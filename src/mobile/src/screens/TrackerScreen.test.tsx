@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { createTestClock, anchorAtStart, type BreathEvent } from '@manatee/core';
-import { ELEVATED_AFTER_MS, TrackerScreen } from './TrackerScreen';
+import { createTestClock, anchorAtStart, type AlarmState, type BreathEvent } from '@manatee/core';
+import { TrackerScreen } from './TrackerScreen';
 
 /**
  * The invariant these tests exist for: **the record target does not move.**
@@ -21,6 +21,19 @@ function breath(sequence: number, elapsedMs: number): BreathEvent {
     sequence,
     recordedAt: new Date(Date.parse(START) + elapsedMs).toISOString(),
     elapsedMs,
+  };
+}
+
+function alarmAt(level: number, sinceMs: number, silenced = false): AlarmState {
+  return {
+    level,
+    severity: level > 0 ? 'critical' : null,
+    sinceLastBreathMs: sinceMs,
+    visible: level > 0,
+    shouldSpeak: false,
+    assetId: level > 0 ? 'no-breath-60s' : null,
+    silenced,
+    escalated: false,
   };
 }
 
@@ -48,7 +61,12 @@ function styleOf(testID: string) {
 
 describe('locked zones', () => {
   const calm = { events: [breath(1, 10_000)], elapsedMsOverride: 20_000 };
-  const elevated = { events: [breath(1, 10_000)], elapsedMsOverride: 10_000 + ELEVATED_AFTER_MS };
+  const elevated = {
+    events: [breath(1, 10_000)],
+    elapsedMsOverride: 70_000,
+    alarm: alarmAt(1, 60_000),
+    onAcknowledge: () => {},
+  };
 
   it('renders every zone in both states', () => {
     for (const state of [calm, elevated]) {
@@ -184,5 +202,65 @@ describe('ending an assessment', () => {
     const { props } = renderTracker();
     fireEvent.press(screen.getByLabelText('End assessment'));
     expect(props.onEnd).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the alarm on screen', () => {
+  const raised = {
+    events: [breath(1, 10_000)],
+    elapsedMsOverride: 75_000,
+    alarm: alarmAt(1, 65_000),
+  };
+
+  it('inverts to the alarm palette when the engine says so', () => {
+    // The screen does not decide the threshold — it renders the verdict.
+    const first = renderTracker({ ...raised, alarm: null });
+    const calmBg = styleOf('tracker-screen');
+    first.unmount();
+
+    renderTracker(raised);
+    expect(styleOf('tracker-screen')).not.toBe(calmBg);
+  });
+
+  it('shows the warning with the elapsed silence', () => {
+    renderTracker(raised);
+    expect(screen.getByText(/NO BREATH 1:05 — CONSIDER INDUCING/)).toBeTruthy();
+  });
+
+  it('offers a silence control only while an alarm is up', () => {
+    const first = renderTracker({ ...raised, alarm: null, onAcknowledge: jest.fn() });
+    expect(screen.queryByLabelText('Silence the alarm')).toBeNull();
+    first.unmount();
+
+    renderTracker({ ...raised, onAcknowledge: jest.fn() });
+    expect(screen.getByLabelText('Silence the alarm')).toBeTruthy();
+  });
+
+  it('acknowledges through the header, not next to the record target', () => {
+    const onAcknowledge = jest.fn();
+    renderTracker({ ...raised, onAcknowledge });
+    fireEvent.press(screen.getByLabelText('Silence the alarm'));
+    expect(onAcknowledge).toHaveBeenCalledTimes(1);
+  });
+
+  it('says when the alarm is already silenced', () => {
+    // Acknowledge is not resolve: the banner stays, the label changes.
+    renderTracker({
+      ...raised,
+      alarm: alarmAt(1, 65_000, true),
+      onAcknowledge: jest.fn(),
+    });
+    expect(screen.getByText('SILENCED')).toBeTruthy();
+    expect(screen.getByText(/CONSIDER INDUCING/)).toBeTruthy();
+  });
+
+  it('keeps the record zone identical once the silence control appears', () => {
+    // Adding a control to the header must not disturb the zone below it.
+    const first = renderTracker({ ...raised, alarm: null });
+    const calmRecord = styleOf('record-zone');
+    first.unmount();
+
+    renderTracker({ ...raised, onAcknowledge: jest.fn() });
+    expect(styleOf('record-zone')).toBe(calmRecord);
   });
 });

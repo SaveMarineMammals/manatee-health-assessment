@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFonts } from 'expo-font';
 import {
   IBMPlexSans_400Regular,
@@ -14,30 +14,46 @@ import {
   anchorAfterResume,
   anchorAtStart,
   chrome,
+  elapsedNow,
+  formatElapsed,
+  type AlarmState,
   type BreathEvent,
   type ElapsedAnchor,
 } from '@manatee/core';
+import { createAlarmScheduler, type AlarmScheduler } from '@manatee/alarm-output';
 import type { Assessment } from '@manatee/db';
-import { clock, getRepository, newId } from './src/data/database';
+import { alarmRepository, clock, getRepository, newId } from './src/data/database';
+import { createExpoAlarmOutput } from './src/alarm/expo-alarm-output';
+import {
+  clearAlarmNotifications,
+  ensureAlarmChannel,
+  postAlarmNotification,
+  requestAlarmPermissions,
+} from './src/alarm/notification-backstop';
+import { PreflightScreen } from './src/screens/PreflightScreen';
 import { StartScreen } from './src/screens/StartScreen';
 import { TrackerScreen } from './src/screens/TrackerScreen';
 
 /**
- * P1 — start an assessment, track breaths, end it.
+ * P2 — preflight, then track, with the spoken alarm running.
  *
- * Navigation is a single piece of state rather than a router: there are two
- * screens, and the tracker must never be one back-gesture away from being
- * dismissed mid-animal.
+ * The alarm is driven from one interval here rather than inside the tracker, so
+ * it keeps running while the app is backgrounded and does not restart when the
+ * screen re-renders. Elapsed time is recomputed from the clock on every tick
+ * rather than accumulated, so a throttled tick loses nothing.
  *
- * The spoken alarm lands in P2, the summary and measurement forms in P3, sync
- * in P4. Nothing here talks to the network.
+ * The summary and measurement forms land in P3, sync in P4.
  */
+
+const ALARM_TICK_MS = 1000;
 
 interface Session {
   assessment: Assessment;
   anchor: ElapsedAnchor;
   events: BreathEvent[];
 }
+
+const alarmOutput = createExpoAlarmOutput();
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -49,10 +65,31 @@ export default function App() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [restored, setRestored] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+  const [heardConfirmed, setHeardConfirmed] = useState(false);
+  const [preflightPassed, setPreflightPassed] = useState(false);
+  const [alarm, setAlarm] = useState<AlarmState | null>(null);
 
-  // An assessment left open by a force quit is resumed rather than lost. The
-  // monotonic origin cannot survive the process, so elapsed time is re-anchored
-  // from the wall clock once, floored at the last recorded breath.
+  const scheduler = useRef<AlarmScheduler | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  sessionRef.current = session;
+
+  // Load clips and warm the audio session before anything else. A cold session
+  // costs hundreds of milliseconds at the moment the alarm is due.
+  useEffect(() => {
+    void (async () => {
+      try {
+        await alarmOutput.preload();
+        await ensureAlarmChannel();
+        await requestAlarmPermissions();
+        setAudioReady(true);
+      } catch {
+        // Left false: preflight refuses to continue, which is the point.
+        setAudioReady(false);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     const repo = getRepository();
     const open = repo.getOpenAssessment();
@@ -62,9 +99,59 @@ export default function App() {
         anchor: anchorAfterResume(clock, open.startedAt, repo.lastElapsedMs(open.id)),
         events: repo.listBreaths(open.id),
       });
+      // A resumed assessment has already been through preflight.
+      setPreflightPassed(true);
+      setHeardConfirmed(true);
     }
     setRestored(true);
   }, []);
+
+  // One scheduler per assessment, recording everything it decides.
+  useEffect(() => {
+    if (!session) {
+      scheduler.current?.reset();
+      scheduler.current = null;
+      setAlarm(null);
+      return undefined;
+    }
+
+    const assessmentId = session.assessment.id;
+    scheduler.current = createAlarmScheduler({
+      output: alarmOutput,
+      onEvent: (event) => {
+        alarmRepository().record({
+          id: newId(),
+          assessmentId,
+          kind: event.kind,
+          level: event.level,
+          ladderVersion: event.ladderVersion,
+          occurredAt: clock.nowUtc(),
+          elapsedMs: event.elapsedMs,
+          sinceLastBreathMs: event.sinceLastBreathMs,
+        });
+
+        // The backstop for a phone that is pocketed or locked.
+        if (event.kind === 'raised' || event.kind === 'escalated') {
+          void postAlarmNotification(formatElapsed(event.sinceLastBreathMs));
+        }
+        if (event.kind === 'cleared') {
+          void clearAlarmNotifications();
+        }
+      },
+    });
+
+    const id = setInterval(() => {
+      const current = sessionRef.current;
+      if (!current || !scheduler.current) return;
+      setAlarm(scheduler.current.tick(current.events, elapsedNow(current.anchor, clock)));
+    }, ALARM_TICK_MS);
+
+    return () => {
+      clearInterval(id);
+      scheduler.current?.reset();
+      scheduler.current = null;
+    };
+  }, [session?.assessment.id]);
 
   const handleStart = useCallback((name: string) => {
     const repo = getRepository();
@@ -84,7 +171,6 @@ export default function App() {
       const event = getRepository().recordBreath({
         id: newId(),
         assessmentId: current.assessment.id,
-        // Wall clock for the record; elapsed milliseconds for every derivation.
         recordedAt: clock.nowUtc(),
         elapsedMs,
       });
@@ -109,11 +195,19 @@ export default function App() {
     });
   }, []);
 
+  const handleAcknowledge = useCallback(() => {
+    const current = sessionRef.current;
+    if (!current || !scheduler.current) return;
+    scheduler.current.acknowledge(elapsedNow(current.anchor, clock));
+    setAlarm(scheduler.current.current());
+  }, []);
+
   const handleEnd = useCallback(() => {
     setSession((current) => {
       if (current) getRepository().endAssessment(current.assessment.id, clock.nowUtc());
       return null;
     });
+    void clearAlarmNotifications();
   }, []);
 
   if (!fontsLoaded || !restored) {
@@ -122,6 +216,22 @@ export default function App() {
         <StatusBar style="light" />
         <ActivityIndicator color={chrome.accent} />
       </View>
+    );
+  }
+
+  if (!preflightPassed) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <PreflightScreen
+          audioReady={audioReady}
+          heardConfirmed={heardConfirmed}
+          onTestAlarm={() => void alarmOutput.speak('no-breath-60s')}
+          onStopAlarm={() => void alarmOutput.stop()}
+          onConfirmHeard={() => setHeardConfirmed(true)}
+          onContinue={() => setPreflightPassed(true)}
+        />
+      </>
     );
   }
 
@@ -136,14 +246,16 @@ export default function App() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={alarm && alarm.level > 0 ? 'light' : 'dark'} />
       <TrackerScreen
         assessmentName={session.assessment.name}
         events={session.events}
         clock={clock}
         anchor={session.anchor}
+        alarm={alarm}
         onRecordBreath={handleRecordBreath}
         onVoidLast={handleVoidLast}
+        onAcknowledge={handleAcknowledge}
         onEnd={handleEnd}
       />
     </>

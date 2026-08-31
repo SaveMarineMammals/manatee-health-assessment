@@ -15,6 +15,7 @@ import {
   rollingRatePer5Min,
   sinceLastBreathMs,
   tracker,
+  type AlarmState,
   type BreathEvent,
   type Clock,
   type ElapsedAnchor,
@@ -36,12 +37,10 @@ import {
  *   once the screen washes out in direct sun, and fails red-green colour
  *   deficiency besides.
  *
- * The 60-second threshold below only drives colour and the banner in P1. The
- * spoken alarm, escalation and acknowledgement arrive in P2.
+ * The alarm itself is not decided here. The engine in @manatee/core owns the
+ * thresholds and the escalation, the scheduler speaks, and this screen renders
+ * the verdict — which is why the rules are testable without a phone.
  */
-
-/** Provisional, pending CMARI review. Versioned properly with the alarm in P2. */
-export const ELEVATED_AFTER_MS = 60_000;
 
 const TICK_MS = 250;
 
@@ -53,6 +52,10 @@ export interface TrackerScreenProps {
   onRecordBreath: (elapsedMs: number) => void;
   onVoidLast: () => void;
   onEnd: () => void;
+  /** Current alarm state from the scheduler. Null before the first tick. */
+  alarm?: AlarmState | null;
+  /** Silence the sound. Does not clear the alarm — see docs/ALARM-AUDIO.md. */
+  onAcknowledge?: () => void;
   /** Test seam: pins elapsed time so rendering is deterministic. */
   elapsedMsOverride?: number;
 }
@@ -65,6 +68,8 @@ export function TrackerScreen({
   onRecordBreath,
   onVoidLast,
   onEnd,
+  alarm = null,
+  onAcknowledge,
   elapsedMsOverride,
 }: TrackerScreenProps) {
   useKeepAwake();
@@ -93,7 +98,8 @@ export function TrackerScreen({
 
   const active = useMemo(() => activeBreaths(events), [events]);
   const sinceMs = sinceLastBreathMs(events, elapsedMs);
-  const elevated = sinceMs >= ELEVATED_AFTER_MS;
+  // The alarm engine owns the threshold; the screen only renders its verdict.
+  const elevated = (alarm?.level ?? 0) > 0;
   const palette = elevated ? tracker.alarm : tracker.calm;
 
   const ratePer5Min = rollingRatePer5Min(events, elapsedMs, FIVE_MINUTES_MS);
@@ -131,6 +137,25 @@ export function TrackerScreen({
         <Text numberOfLines={1} style={[styles.headerText, { color: palette.textMuted }]}>
           {assessmentName.toUpperCase()}
         </Text>
+        {/* Silence lives up here with End, not beside the record target: at the
+            moment it appears, the operator is tapping the button quickly. */}
+        {elevated && onAcknowledge ? (
+          <Pressable
+            testID="acknowledge-alarm"
+            accessibilityRole="button"
+            accessibilityLabel="Silence the alarm"
+            onPress={onAcknowledge}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.silenceButton,
+              { borderColor: palette.text, opacity: pressed ? 0.6 : 1 },
+            ]}
+          >
+            <Text style={[styles.silenceText, { color: palette.text }]}>
+              {alarm?.silenced ? 'SILENCED' : 'SILENCE'}
+            </Text>
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="End assessment"
@@ -287,6 +312,14 @@ const styles = StyleSheet.create({
   },
   headerText: { fontSize: TYPE.meta, letterSpacing: 1, flexShrink: 1 },
   endButton: { paddingHorizontal: SPACE.sm, paddingVertical: SPACE.xs },
+  silenceButton: {
+    paddingHorizontal: SPACE.sm,
+    paddingVertical: SPACE.xs,
+    borderWidth: 2,
+    borderRadius: RADIUS.sm,
+    marginRight: SPACE.sm,
+  },
+  silenceText: { fontSize: TYPE.meta, letterSpacing: 1.2, fontWeight: '700' },
   endText: { fontSize: TYPE.meta, letterSpacing: 1.4, fontWeight: '700' },
 
   timerZone: { flex: 24, alignItems: 'center', justifyContent: 'center' },
