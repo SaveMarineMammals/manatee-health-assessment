@@ -1,9 +1,9 @@
 {
-  "name": "@manatee/core",
+  "name": "@manatee/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Pure domain logic — no React, no native, no I/O",
+  "description": "SQLite schema, migrations and repositories. No native dependency.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -15,8 +15,13 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "pretypecheck": "pnpm --filter @manatee/core build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @manatee/core build",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@manatee/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

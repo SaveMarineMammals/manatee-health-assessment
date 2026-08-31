@@ -6,8 +6,8 @@ hardware — outdoors — inside a month. Everything after that is comparatively
 | Phase                                                       | Status   | Estimate  |
 | ----------------------------------------------------------- | -------- | --------- |
 | [P0 Foundations](#p0-foundations)                           | **Done** | 1 week    |
-| [P1 Breath tracker](#p1-breath-tracker)                     | Next     | 2 weeks   |
-| [P2 Spoken alarm](#p2-spoken-alarm)                         | Pending  | 1.5 weeks |
+| [P1 Breath tracker](#p1-breath-tracker)                     | **Done** | 2 weeks   |
+| [P2 Spoken alarm](#p2-spoken-alarm)                         | Next     | 1.5 weeks |
 | [P3 Summary and measurements](#p3-summary-and-measurements) | Pending  | 1.5 weeks |
 | [P4 Sync](#p4-sync)                                         | Pending  | 2 weeks   |
 | [P5 Photographs](#p5-photographs)                           | Pending  | 1.5 weeks |
@@ -32,11 +32,16 @@ filed against the platform.
 
 ## P1 Breath tracker
 
-The single screen with locked zones and the outdoor palette, the timing core, SQLite persistence, the
-log with its pinned newest entry, debounce and undo. No alarm and no sync yet.
+**Done.** The single screen with locked zones and the outdoor palette, the timing core, SQLite
+persistence, the log with its newest entry pinned, debounce and undo. No alarm and no sync.
 
-**Gate:** 200 taps over an hour outdoors at midday, gloved, force-quit mid-session, every event and
-interval intact.
+The timing core lives in `src/core` as pure functions over an injected clock: elapsed monotonic
+milliseconds drive every derived number, wall-clock time is recorded but never used for arithmetic,
+and derived values are always recomputed from the raw log rather than stored.
+
+**Gate — not yet met:** 200 taps over an hour outdoors at midday, gloved, force-quit mid-session,
+every event and interval intact. The persistence half is covered by an automated test that reopens a
+file-backed database across driver instances; the outdoor, gloved, hour-long half needs a device.
 
 ## P2 Spoken alarm
 
